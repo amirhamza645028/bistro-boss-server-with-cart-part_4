@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
 
@@ -10,8 +11,10 @@ app.use(express.json());
 
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.swu9d.mongodb.net/?retryWrites=true&w=majority`;
-
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.kg7yx.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.swu9d.mongodb.net/?retryWrites=true&w=majority`;
+console.log("BD_User:-",process.env.DB_USER)
+console.log("BD_password:-",process.env.DB_PASS)
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -26,9 +29,56 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const menuCollection = client.db("bistroDb").collection("menu");
-    const reviewCollection = client.db("bistroDb").collection("reviews");
-    const cartCollection = client.db("bistroDb").collection("carts");
+    const userCollection = client.db("BistroBos").collection("users");
+    const menuCollection = client.db("BistroBos").collection("menu");
+    const reviewCollection = client.db("BistroBos").collection("revews");
+    const cartCollection = client.db("BistroBos").collection("carts");
+    //jwt related api 
+    app.post('/jwt',async(req,res)=>{
+      const user = req.body;
+      const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+      res.send({token});
+    })
+
+//user related api
+    app.get|('/users',async(req,res)=>{
+      const result = await userCollection.find().toArray();
+      res.send(result)
+    });
+
+    app.post('/users',async(req,res)=>{
+      //insert email if doesn't exist
+      //you can do this many ways (1.email unique, 2. upsert 3.simple checking)
+      
+      const user = req.body;
+      //eta hottche google diye sing in korle 
+      const query = {email:user.email}
+      const existing = await userCollection.findOne(query)
+      if(existing){
+        return res.send({message: 'user already exits', insertedId:null})
+      }
+      const result=await userCollection.insertOne(user);
+      res.send(result);
+    })
+
+    app.patch('/users/admin/:id',async(req,res)=>{
+      const id = req.params.id;
+      const filter = {_id: new ObjectId(id)};
+      const updatedDoc = {
+        $set:{ 
+          role:'admin'}
+      }
+      const result = await userCollection.updateOne(filter,updatedDoc);
+      res.send(result)
+    })
+    
+    app.delete('/users/:id',async(req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await userCollection.deleteOne(query)
+      res.send(result)
+    })
+    
 
     app.get('/menu', async (req, res) => {
       const result = await menuCollection.find().toArray();
